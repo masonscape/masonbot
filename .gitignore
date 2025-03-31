@@ -1,0 +1,32 @@
+# Node.js dependencies  
+node_modules/  
+
+# TypeScript build output  
+dist/  
+
+# Dependency lockfiles (optional)  
+pnpm-lock.yaml  
+package-lock.json  
+yarn.lock  
+
+# Environment & Config Files  
+config.json
+*.db
+
+# Editor/IDE files  
+.vscode/  
+.idea/  
+*.swp  
+*.swo  
+
+# Logs & temp files  
+npm-debug.log*  
+yarn-debug.log*  
+yarn-error.log*  
+pnpm-debug.log*  
+*.log
+.DS_Store  # macOS system file  
+Thumbs.db  # Windows system file  
+
+# Process manager files  
+ecosystem.config.*  

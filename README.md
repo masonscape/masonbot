@@ -1,0 +1,1 @@
+A personal-use Discord bot for providing status updates for my home server, alongside other silly stuff that comes to mind.

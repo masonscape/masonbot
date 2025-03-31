@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "outDir": "dist",
+        "rootDir": "src",
+        "resolveJsonModule": true,
+        "target": "ES2022",
+        "moduleResolution": "nodenext",
+        "module": "NodeNext",
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"]
+}
