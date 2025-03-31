@@ -3,6 +3,13 @@ import { ChatInputCommandInteraction, CommandInteraction, EmbedBuilder, Interact
 import config from '../../../config.json' with { type: "json" }
 const { server } = config
 
+type Disk = {
+    type: string,
+    temperature: number,
+    smartStatus: string,
+    device: string
+}
+
 const getDiskInfo = async () => {
     const res = await fetch(`${server}/diskinfo`)
 
@@ -14,7 +21,7 @@ const getDiskInfo = async () => {
     return data
 }
 
-const isTempGood = (disk) => {
+const isTempGood = (disk: Disk) => {
     if (disk.type === "HD") {
         return disk.temperature <= 45
     } else if (disk.type = "NVMe") {
@@ -22,7 +29,7 @@ const isTempGood = (disk) => {
     }
 }
 
-const createDiskInfoEmbed = (data) => {
+const createDiskInfoEmbed = (data: Disk[]) => {
     const diskInfoEmbed = new EmbedBuilder()
     const allSmartGood = data.every(disk => disk.smartStatus === "Ok")
     const allTempsGood = data.every(disk => isTempGood(disk))
@@ -56,28 +63,32 @@ const getECCInfo = async () => {
     return data
 }
 
-const extractECCData = (data: string) => {
-    const uncorrected = data.match(/(\d+) Uncorrected/)[1]
-    const corrected = data.match(/(\d+) Corrected/)[1]
-    const conclusion = data.match(/edac-util: (.+)/)[1]
+const extractECCData = (eccCommandResult: string) => {
+    const matchUncorrected = eccCommandResult.match(/(\d+) Uncorrected/)
+    const matchCorrected = eccCommandResult.match(/(\d+) Corrected/)
+    const matchConclusion = eccCommandResult.match(/edac-util: (.+)/)
     
-    console.log(conclusion)
-
-    return [uncorrected, corrected, conclusion]
+    if (matchUncorrected !== null && matchCorrected !== null && matchConclusion !== null) {
+        return [matchUncorrected[1], matchCorrected[1], matchConclusion[1]]
+    } else {
+        return null
+    }
 }
 
 
-const createECCEmbed = (data) => {
+const createECCEmbed = (data: string) => {
     const eccEmbed = new EmbedBuilder()
     const extractedData = extractECCData(data)
 
-    eccEmbed
-        .setColor('#e7e7e7')
-        .setTitle(extractedData[2])
-        .setDescription(`${extractedData[0]} uncorrected\n${extractedData[1]} corrected`)
-
-
+    if (extractedData) {
+        eccEmbed
+            .setColor('#e7e7e7')
+            .setTitle(extractedData[2])
+            .setDescription(`${extractedData[0]} uncorrected\n${extractedData[1]} corrected`)
+    }
+    
     return eccEmbed
+
 }
 
 const getUptime = async () => {

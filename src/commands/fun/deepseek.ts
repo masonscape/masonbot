@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, CommandInteraction, EmbedBuilder, Interact
 
 const chatHistoryMemoryLength = 8
 
-interface ChatMessage {
+type ChatMessage = {
     role: string,
     name: string,
     content: string
@@ -34,9 +34,9 @@ db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS messages (role TEXT, name TEXT, content TEXT, channel_id TEXT)")
 })
 
-const addToDatabase = (role, name, content, channelID) => {
+const addToDatabase = (role: string, name: string, content: string, channelID: string) => {
     const stmt = db.prepare("INSERT INTO messages (role, name, content, channel_id) VALUES (?, ?, ?, ?)")
-    stmt.run(role, name, content, channelID, (err) => {
+    stmt.run(role, name, content, channelID, (err: Error | null) => {
         if (err) {
             console.error("Error adding data to database:", err)
         }
@@ -44,17 +44,17 @@ const addToDatabase = (role, name, content, channelID) => {
     stmt.finalize()
 }
 
-function getLastNEntries(n: number, channelID): Promise<{role: string, name: string, content: string}[]> {
+function getLastNEntries(n: number, channelID: string): Promise<{role: string, name: string, content: string}[]> {
     return new Promise((resolve, reject) => {
         const query = `SELECT role, name, content FROM messages WHERE channel_id = ? ORDER BY ROWID DESC LIMIT ?`
-        const chatHistoryArray = []
+        const chatHistoryArray = <ChatMessage[]>[]
 
-        db.all(query, [channelID, n], (err, rows) => {
+        db.all(query, [channelID, n], (err, rows: ChatMessage[]) => {
             if (err) {
                 console.error("Error fetching data from database:", err);
             } else {
-                rows.forEach((row: ChatMessage) => {
-                    chatHistoryArray.push({ role: row.role, name: row.name, content: row.content })
+                rows.forEach((row) => {
+                    chatHistoryArray.push(row)
                 })
 
                 resolve(chatHistoryArray.reverse())
@@ -71,7 +71,7 @@ const openai = new OpenAI({
     apiKey: token
 })
 
-const getResponse = async (prompt, user, channelID) => {
+const getResponse = async (prompt: string, user: string, channelID: string) => {
     const chatHistory = await getLastNEntries(chatHistoryMemoryLength, channelID)
     // @ts-ignore
     const completion = await openai.chat.completions.create({
@@ -84,13 +84,15 @@ const getResponse = async (prompt, user, channelID) => {
         temperature: 1.3
     })
 
+    if (!completion || completion.choices.length === 0) return null
+
     addToDatabase('user', user, `[${user}] ` + prompt, channelID)
-    addToDatabase('assistant', 'Masonbot', completion.choices[0].message.content, channelID)
+    addToDatabase('assistant', 'Masonbot', completion.choices[0].message.content!, channelID)    
 
     // console.log(`${completion.usage.total_tokens} tokens used for prompt: ${prompt}`)
 
     return {
-        response: completion.choices[0].message.content,
+        message: completion.choices[0].message.content!,
         tokenUsage: completion.usage as DeepseekCompletionUsage,
         prompt: prompt
     }
@@ -145,7 +147,7 @@ const createTokenUsageEmbed = (usage: DeepseekCompletionUsage, prompt: string, r
     return tokenEmbed
 }
 
-const embeddifyResponse = (response) => {
+const embeddifyResponse = (response: string) => {
     const responseEmbed = new EmbedBuilder()
 
     responseEmbed
@@ -168,20 +170,26 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const query = interaction.options.getString('query')
 
-    if (!query) return interaction.editReply('enter a query kid')
+    if (!query) return await interaction.editReply('enter a query kid')
 
     try {
-        const { response, tokenUsage, prompt } = await getResponse(query, interaction.user.displayName, interaction.channelId)
+        const response = await getResponse(query, interaction.user.displayName, interaction.channelId)
 
-        const logChannel = interaction.client.channels.cache.get('1352829621309280408') as TextChannel
-
-        logChannel.send({ embeds: [createTokenUsageEmbed(tokenUsage, prompt, response)]})
-
-        if (response.length > 1990) {
-            await interaction.editReply({ embeds: [embeddifyResponse(response)] }) 
+        if (response === null) {
+            await interaction.editReply(`No response from Deepseek API.`)
         } else {
-            await interaction.editReply(response) 
+            const { message, tokenUsage, prompt } = response
+            const logChannel = interaction.client.channels.cache.get('1352829621309280408') as TextChannel
+
+            logChannel.send({ embeds: [createTokenUsageEmbed(tokenUsage, prompt, message)]})
+
+            if (message.length > 1990) {
+                await interaction.editReply({ embeds: [embeddifyResponse(message)] }) 
+            } else {
+                await interaction.editReply(message) 
+            }
         }
+
     } catch (error) {
         console.error(error)
         await interaction.editReply('An error occurred.')

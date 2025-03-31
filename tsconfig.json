@@ -6,6 +6,7 @@
         "target": "ES2022",
         "moduleResolution": "nodenext",
         "module": "NodeNext",
+        "strict": true
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules"]
