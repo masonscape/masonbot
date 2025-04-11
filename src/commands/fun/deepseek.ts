@@ -28,7 +28,7 @@ db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS messages (role TEXT, name TEXT, content TEXT, channel_id TEXT)")
 })
 
-const addToDatabase = (role: string, name: string, content: string, channelID: string) => {
+const addToDatabase = (role: 'user' | 'assistant', name: string, content: string, channelID: string) => {
     const stmt = db.prepare("INSERT INTO messages (role, name, content, channel_id) VALUES (?, ?, ?, ?)")
     stmt.run(role, name, content, channelID, (err: Error | null) => {
         if (err) {
@@ -55,7 +55,7 @@ type ChatHistoryMessageParam =
     | ChatCompletionUserMessageParam
     | ChatCompletionAssistantMessageParam;
 
-function getLastNEntries(n: number, channelID: string): Promise<ChatHistoryMessageParam[]> {
+function getLastNMessages(n: number, channelID: string): Promise<ChatHistoryMessageParam[]> {
     return new Promise((resolve, reject) => {
         const query = `SELECT role, name, content FROM messages WHERE channel_id = ? ORDER BY ROWID DESC LIMIT ?`
         
@@ -76,32 +76,30 @@ const openai = new OpenAI({
 })
 
 const getResponse = async (prompt: string, user: string, channelID: string) => {
-    const chatHistory = await getLastNEntries(chatHistoryMemoryLength, channelID)
+    const chatHistory = await getLastNMessages(chatHistoryMemoryLength, channelID)
 
     const systemMessage: ChatCompletionSystemMessageParam = {
         role: "system",
         content: systemDetails + currentPersonality
-      };
+    }
     
-      // 3) New user message (name is optional on user messages)
-      const newUserMessage: ChatCompletionUserMessageParam = {
+    const newUserMessage: ChatCompletionUserMessageParam = {
         role: "user",
         content: `[${user}] ${prompt}`,
         name: user
-      };
+    }
     
-      // 2) Your history is already the correct type:
-      const messages: ChatCompletionMessageParam[] = [
+    const messages: ChatCompletionMessageParam[] = [
         systemMessage,
         ...chatHistory,
         newUserMessage
-      ];
-    
-      const completion = await openai.chat.completions.create({
+    ]
+
+    const completion = await openai.chat.completions.create({
         model: "deepseek-chat",
         temperature: 1.5,
         messages
-      });
+    })
 
     if (!completion || completion.choices.length === 0) return null
 
