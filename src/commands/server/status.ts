@@ -1,4 +1,4 @@
-import { ApplicationIntegrationType, ChatInputCommandInteraction, ColorResolvable, CommandInteraction, Embed, EmbedBuilder, Interaction, InteractionContextType, SlashCommandBuilder, TextChannel } from 'discord.js'
+import { ApplicationIntegrationType, ChatInputCommandInteraction, EmbedBuilder, InteractionContextType, SlashCommandBuilder, TextChannel } from 'discord.js'
 
 import config from '../../../config.json' with { type: "json" }
 const { server } = config

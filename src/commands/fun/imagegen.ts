@@ -1,5 +1,14 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js"
-
+import { 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonInteraction, 
+  ButtonStyle, 
+  ChatInputCommandInteraction, 
+  ComponentType, 
+  EmbedBuilder, 
+  SlashCommandBuilder, 
+  AttachmentBuilder 
+} from "discord.js"
 import axios from "axios"
 import fs from "fs"
 import path from "path"
@@ -18,9 +27,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 
 async function setModel(modelName: string) {
   try {
-    await axios.post(API_URL, {
-      sd_model_checkpoint: modelName
-    })
+    await axios.post(API_URL, { sd_model_checkpoint: modelName })
     console.log(`Model set to: ${modelName}`)
   } catch (err) {
     console.error("Error setting model:", (err as Error).message)
@@ -55,32 +62,102 @@ async function generateImage(prompt: string): Promise<string | void> {
   }
 }
 
+function createActionRow(disabled = false) {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(Date.now().toString())
+      .setLabel('🔁')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled)
+  )
+}
+
+function createImageEmbed(prompt: string, imagePath?: string) {
+  const embed = new EmbedBuilder()
+    .setColor('#e7e7e7')
+    .setDescription(prompt)
+
+  if (imagePath) {
+    embed.setImage('attachment://' + path.basename(imagePath))
+  }
+
+  return embed
+}
+
+async function handleButtonInteraction(interaction: ButtonInteraction, prompt: string) {
+  await interaction.editReply({ components: [createActionRow(true)] })
+
+  const newImagePath = await generateImage(prompt)
+
+  const replyOptions = newImagePath
+    ? {
+        embeds: [createImageEmbed(prompt, newImagePath)],
+        components: [createActionRow(false)],
+        files: [new AttachmentBuilder(newImagePath)],
+      }
+    : {
+        content: 'Failed to regenerate the image',
+        components: [createActionRow(false)],
+        embeds: [],
+        files: [],
+      }
+
+  await interaction.editReply(replyOptions)
+
+  if (newImagePath) {
+    await waitForButtonInteraction(interaction, prompt)
+  }
+}
+
+async function waitForButtonInteraction(interaction: ButtonInteraction | ChatInputCommandInteraction, prompt: string) {
+  try {
+    const message = await interaction.fetchReply()
+    const buttonInteraction = await message.awaitMessageComponent({
+      componentType: ComponentType.Button
+    })
+
+    if (buttonInteraction) {
+      await buttonInteraction.deferUpdate()
+      await handleButtonInteraction(buttonInteraction, prompt)
+    }
+  } catch (err) {
+    console.log('Button interaction timeout or error:', err)
+  }
+}
+
 export const data = new SlashCommandBuilder()
-    .setName('sd')
-    .setDescription('Generate an image with Stable Diffusion')
-    .setContexts(0, 1, 2)
-    .setIntegrationTypes(1)
-    .addStringOption(option => 
-        option.setName('prompt')
-			.setDescription('The image prompt'))
+  .setName('sd')
+  .setDescription('Generate an image with Stable Diffusion')
+  .addStringOption(option =>
+    option.setName('prompt')
+      .setDescription('The image prompt')
+  )
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply()
 
   const prompt = interaction.options.getString('prompt')
 
-  if (!prompt) return await interaction.editReply('enter a prompt kid')
+  if (!prompt) {
+    return await interaction.editReply('Enter a prompt kid')
+  }
 
   try {
-    const response = await generateImage(prompt)
+    const imagePath = await generateImage(prompt)
 
-    if (typeof response !== 'string') {
+    if (!imagePath) {
       await interaction.editReply(`No response from AUTOMATIC1111 API.`)
     } else {
+      const row = createActionRow(false)
+      const file = new AttachmentBuilder(imagePath)
+
       await interaction.editReply({
-        content: prompt,
-        files: [response]
-      }) 
+        embeds: [createImageEmbed(prompt, imagePath)],
+        components: [row],
+        files: [file],
+      })
+
+      await waitForButtonInteraction(interaction, prompt)
     }
   } catch (error) {
     console.error(error)
