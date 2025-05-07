@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, CommandInteraction, EmbedBuilder, Interaction, roleMention, SlashCommandBuilder, TextChannel } from 'discord.js'
+import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder, TextChannel } from 'discord.js'
 
 const chatHistoryMemoryLength = 8
 
