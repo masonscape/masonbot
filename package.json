@@ -17,7 +17,9 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^1.9.0",
+    "canvas": "^3.1.2",
     "discord.js": "^14.18.0",
+    "fuse.js": "^7.1.0",
     "openai": "^4.89.0",
     "sqlite3": "^5.1.7"
   },
@@ -29,6 +31,9 @@
   "pnpm": {
     "overrides": {
       "@types/node": "20"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "canvas"
+    ]
   }
 }
